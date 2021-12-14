@@ -639,7 +639,7 @@ shared(installMsg) actor class DRC20(initArgs: Types.InitArgs) = this {
     // Do not update state variables before calling _transfer
     private func _transfer(_msgCaller: Principal, _sa: ?[Nat8], _from: AccountId, _to: AccountId, _value: Nat, _data: ?Blob, 
     _operation: Operation, _isAllowance: Bool): (result: TxnResult) {
-        let callerPrincipal = _msgCaller;
+        var callerPrincipal = _msgCaller;
         let caller = _getAccountIdFromPrincipal(_msgCaller, _sa);
         let txid = _getTxid(_msgCaller);
         let from = _from;
@@ -738,6 +738,7 @@ shared(installMsg) actor class DRC20(initArgs: Types.InitArgs) = this {
                 var as: [AccountId] = [from, to];
                 _pushLastTxn(as, txid);
                 _pushMessages(as, #onApprove, txid);
+                callerPrincipal := Principal.fromText("2vxsx-fae");  // [4] Anonymous principal
             };
         };
         
