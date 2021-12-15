@@ -6,7 +6,7 @@
 
 **ICTokens Scan**
 **Website:** [http://scan.ictokens.com](http://scan.ictokens.com/)(building)  
-**Canister id:**  oearr-eyaaa-aaaak-aabja-cai
+**Canister id:**  oearr-eyaaa-aaaak-aabja-cai  
 **ModuleHash:** 63a8040a5b7650a4333214f281a1edf267d2778e0de9312890182f6c7f97e2dd
 
 ## 简介（Overview）
