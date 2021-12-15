@@ -68,7 +68,7 @@ module {
     };
     public type TxnRecord = {
         txid: Txid;
-        caller: Principal; //sender/spender/decider
+        caller: Principal; // sender/spender/decider
         timestamp: Time.Time; //Time
         index: Nat;
         nonce: Nat;
