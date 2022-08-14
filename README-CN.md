@@ -4,10 +4,8 @@
 **Canister id:**  y2b5k-gqaaa-aaaak-aacqq-cai  
 **ModuleHash:** fced8cdbafa0b0bbf7c57ab53c3493023b79c26e62e06dd5992104e3f29dfa7b
 
-**ICTokens Scan**  
-**Website:** [http://scan.ictokens.com](http://scan.ictokens.com/)(building)   
-**Canister id:**  ytcww-qyaaa-aaaak-aacra-cai 
-**ModuleHash:** ae4c3e8cb0effd417845a25a606484b5753d0c189c0bdde3a77571f94d1ed4d9
+**Tokens Explorer**  
+**ICHouse:** [http://ic.house/](http://ic.house/)    
 
 ## 简介（Overview）
 
@@ -22,7 +20,7 @@ ICTokens是ICLighthouse旗下一个资产通证化（Asset Tokenization）平台
 用户可以在ICTokens查询token列表，该列表通过评分进行排序，评分依据是用户Star数量和平台的推荐值进行综合计算。   
 如果用户需要关注某个token，他可以点击Star（每次Star需要发送1 ICL平台治理代币），将该token加入关注列表。
 
-ICTokens的另一项服务提供一个公共的Token交易记录浏览器（ICTokens Scan），遵循DRC202标准。ICTokens Scan支持多Token存储交易历史记录，作为Token的历史数据持久化解决方案。DRC202的Token交易记录存储机制是通过一个入口合约Proxy代理存储，Proxy根据实际存储需求创建Bucket（一个Bucket存满后会创建一个新的Bucket），然后将交易记录压缩后存入Bucket。需要查询Token的交易记录时，先从Proxy查询到该记录保存在哪个Bucket中（使用了BloomFilter技术进行路由），再从Bucket取出交易记录数据。
+ICTokens的另一项服务提供一个公共的Token交易记录浏览器ICHouse（Tokens Explorer），遵循DRC202标准。ICHouse支持多Token存储交易历史记录，作为Token的历史数据持久化解决方案。DRC202的Token交易记录存储机制是通过一个入口合约Proxy代理存储，Proxy根据实际存储需求创建Bucket（一个Bucket存满后会创建一个新的Bucket），然后将交易记录压缩后存入Bucket。需要查询Token的交易记录时，先从Proxy查询到该记录保存在哪个Bucket中（使用了BloomFilter技术进行路由），再从Bucket取出交易记录数据。
 
 ![image](drc202.png)
 

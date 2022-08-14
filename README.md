@@ -4,10 +4,8 @@
 **Canister id:**  y2b5k-gqaaa-aaaak-aacqq-cai  
 **ModuleHash:** fced8cdbafa0b0bbf7c57ab53c3493023b79c26e62e06dd5992104e3f29dfa7b
 
-**ICTokens Scan**  
-**Website:** [http://scan.ictokens.com](http://scan.ictokens.com/)(building)   
-**Canister id:**  ytcww-qyaaa-aaaak-aacra-cai 
-**ModuleHash:** ae4c3e8cb0effd417845a25a606484b5753d0c189c0bdde3a77571f94d1ed4d9
+**Tokens Explorer**  
+**ICHouse:** [http://ic.house/](http://ic.house/)   
 
 ## Overview
 
@@ -22,7 +20,7 @@ A founder creates a token with one click through ICTokens, following the DRC20 s
 The list of tokens is sorted by score, which is calculated based on the number of user stars and the platform's recommendation value.   
 If a user wants to follow a token, he can click on the Star button to add the token to his follow list ( it is required to send 1 ICL).
 
-ICTokens Scan is a public token transaction records explorer that uses the DRC202 standard. ICTokens Scan supports multi-token storage of transaction records as a solution for persisting historical data for tokens. The Proxy creates a Bucket according to the actual storage requirements (a new Bucket is created when one is full), then compresses the transaction records and stores them in the Bucket. The way to query a token transaction record is to first query the Proxy to find out which Bucket the record is stored in (using BloomFilter technology for routing), and then retrieve the transaction record data from the Bucket.
+ICHouse is a public token transaction records explorer that uses the DRC202 standard. ICHouse supports multi-token storage of transaction records as a solution for persisting historical data for tokens. The Proxy creates a Bucket according to the actual storage requirements (a new Bucket is created when one is full), then compresses the transaction records and stores them in the Bucket. The way to query a token transaction record is to first query the Proxy to find out which Bucket the record is stored in (using BloomFilter technology for routing), and then retrieve the transaction record data from the Bucket.
 
 ![image](drc202.png)
 
