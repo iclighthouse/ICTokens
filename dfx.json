@@ -8,9 +8,9 @@
       "main": "./ICTokensScan.mo",
       "type": "motoko"
     },
-    "DRC202": {
-      "main": "./DRC202Proxy.mo",
-      "type": "motoko",
+    "DRC20": {
+      "main": "./DRC20.mo",
+      "type": "motoko"
     }
   },
   "defaults": {

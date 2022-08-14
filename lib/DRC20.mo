@@ -1,20 +1,28 @@
+/**
+ * Module     : DRC20.mo (ICTokens version)
+ * Author     : ICLight.house Team
+ * Github     : https://github.com/iclighthouse/DRC_standards/
+ */
+
 module {
   public type AccountId = Blob;
   public type Address = Text;
+  public type From = Address;
+  public type To = Address;
+  public type Spender = Address;
+  public type Decider = Address;
+  public type Amount = Nat;
+  public type Sa = [Nat8];
+  public type Nonce = Nat;
+  public type Data = Blob;
+  public type Timeout = Nat32;
   public type Allowance = { remaining : Nat; spender : AccountId };
   public type Callback = shared TxnRecord -> async ();
-  public type Config = {
-    maxPublicationTries : Nat;
-    maxStorageTries : Nat;
-    storageCanister : Text;
-    maxCacheNumberPer : Nat;
-    maxCacheTime : Int;
-    feeTo : Address;
-  };
   public type ExecuteType = { #sendAll; #send : Nat; #fallback };
   public type Gas = { #token : Nat; #cycles : Nat; #noFee };
   public type Metadata = { content : Text; name : Text };
   public type MsgType = { #onApprove; #onExecute; #onTransfer; #onLock };
+  public type CoinSeconds = { coinSeconds: Nat; updateTime: Int };
   public type Operation = {
     #approve : { allowance : Nat };
     #lockTransfer : { locked : Nat; expiration : Time; decider : AccountId };
@@ -38,6 +46,7 @@ module {
     #lastTxidsGlobal;
     #getTxn : { txid : Txid };
     #txnCountGlobal;
+    #getEvents: { owner: ?Address; };
   };
   public type TxnQueryResponse = {
     #txnCount : Nat;
@@ -46,6 +55,7 @@ module {
     #lastTxidsGlobal : [Txid];
     #getTxn : ?TxnRecord;
     #txnCountGlobal : Nat;
+    #getEvents: [TxnRecord];
   };
   public type TxnRecord = {
     gas : Gas;
@@ -53,7 +63,8 @@ module {
     txid : Txid;
     nonce : Nat;
     timestamp : Time;
-    caller : Principal;
+    msgCaller : ?Principal;
+    caller : AccountId;
     index : Nat;
   };
   public type TxnResult = {
@@ -64,59 +75,58 @@ module {
         #InsufficientAllowance;
         #UndefinedError;
         #InsufficientBalance;
+        #NonceError;
+        #NoLockedTransfer;
+        #DuplicateExecutedTransfer;
         #LockedTransferExpired;
       };
       message : Text;
     };
   };
+  public type Config = { //ict
+        feeTo: ?Address;
+    };
+  public type InitArgs = {
+      totalSupply: Nat;
+      decimals: Nat8;
+      gas: Gas;
+      name: ?Text;
+      symbol: ?Text;
+      metadata: ?[Metadata];
+      founder: ?Address;
+  };
   public type Self = actor {
-    allowance : shared query (Address, Address) -> async Nat;
-    approvals : shared query Address -> async [Allowance];
-    approve : shared (Address, Nat, ?[Nat8]) -> async TxnResult;
-    balanceOf : shared query Address -> async Nat;
-    changeOwner : shared Principal -> async Bool;
-    config : shared Config -> async Bool;
-    cyclesBalanceOf : shared query Address -> async Nat;
-    cyclesReceive : shared ?Address -> async Nat;
-    cyclesWithdraw : shared (Principal, Nat, ?[Nat8]) -> async ();
-    decimals : shared query () -> async Nat8;
-    executeTransfer : shared (Txid, ExecuteType, ?Address, ?[Nat8]) -> async TxnResult;
-    gas : shared query () -> async Gas;
-    getMemory : shared query () -> async (Nat, Nat, Nat, Nat32);
-    lockTransfer : shared (
-        Address,
-        Nat,
-        Nat32,
-        ?Address,
-        ?[Nat8],
-        ?Blob,
-      ) -> async TxnResult;
-    lockTransferFrom : shared (
-        Address,
-        Address,
-        Nat,
-        Nat32,
-        ?Address, 
-        ?[Nat8],
-        ?Blob,
-      ) -> async TxnResult;
-    metadata : shared query () -> async [Metadata];
-    name : shared query () -> async Text;
-    setGas : shared Gas -> async Bool;
-    setMetadata : shared [Metadata] -> async Bool;
     standard : shared query () -> async Text;
-    subscribe : shared (Callback, [MsgType], ?[Nat8]) -> async Bool;
-    subscribed : shared query Address -> async ?Subscription;
-    symbol : shared query () -> async Text;
-    totalSupply : shared query () -> async Nat;
-    transfer : shared (Address, Nat, ?[Nat8], ?Blob) -> async TxnResult;
-    transferFrom : shared (
-        Address,
-        Address,
-        Nat, 
-        ?[Nat8],
-        ?Blob,
-      ) -> async TxnResult;
-    txnQuery : shared query TxnQueryRequest -> async TxnQueryResponse;
+    drc20_allowance : shared query (Address, Spender) -> async Amount;
+    drc20_approvals : shared query Address -> async [Allowance];
+    drc20_approve : shared (Spender, Amount, ?Nonce, ?Sa, ?Data) -> async TxnResult;
+    drc20_balanceOf : shared query Address -> async Amount;
+    drc20_cyclesBalanceOf : shared query Address -> async Nat;
+    drc20_cyclesReceive : shared ?Address -> async Nat;
+    drc20_decimals : shared query () -> async Nat8;
+    drc20_executeTransfer : shared (Txid, ExecuteType, ?To, ?Nonce, ?Sa, ?Data) -> async TxnResult;
+    drc20_gas : shared query () -> async Gas;
+    drc20_lockTransfer : shared (To, Amount, Timeout, ?Decider, ?Nonce, ?Sa, ?Data) -> async TxnResult;
+    drc20_lockTransferFrom : shared (From, To, Amount, Timeout, ?Decider, ?Nonce, ?Sa, ?Data) -> async TxnResult;
+    drc20_metadata : shared query () -> async [Metadata];
+    drc20_name : shared query () -> async Text;
+    drc20_subscribe : shared (Callback, [MsgType], ?Sa) -> async Bool;
+    drc20_subscribed : shared query Address -> async ?Subscription;
+    drc20_symbol : shared query () -> async Text;
+    drc20_totalSupply : shared query () -> async Amount;
+    drc20_transfer : shared (To, Amount, ?Nonce, ?Sa, ?Data) -> async TxnResult;
+    drc20_transferFrom : shared (From, To, Amount, ?Nonce, ?Sa, ?Data) -> async TxnResult;
+    drc20_txnQuery : shared query TxnQueryRequest -> async TxnQueryResponse;
+    drc20_txnRecord : shared (Txid) -> async ?TxnRecord;
+    drc20_getCoinSeconds : shared query ?Address -> async (CoinSeconds, ?CoinSeconds);
+    drc20_dropAccount : shared (?Sa) -> async Bool;
+    drc20_holdersCount : shared query () -> async (balances: Nat, nonces: Nat, dropedAccounts: Nat);
+    ictokens_top100 : shared query () -> async [(Address, Amount)];
+    ictokens_heldFirstTime : shared query Address -> async ?Int;
+    ictokens_getConfig : shared query () -> async Config;
+    ictokens_snapshot : shared Amount -> async Bool;
+    ictokens_clearSnapshot : shared () -> async Bool;
+    ictokens_getSnapshot : shared query (Nat, Nat) -> async (Int, [(AccountId, Nat)], Bool);
+    ictokens_snapshotBalanceOf : shared query (Nat, Address) -> async (Int, ?Nat);
   }
 }

@@ -24,9 +24,9 @@ import Order "mo:base/Order";
 import Principal "mo:base/Principal";
 import Time "mo:base/Time";
 import Tools "./lib/Tools";
-import Types "./lib/Types";
+import Types "./lib/DRC20";
 import IC "./sys/IC";
-import Monitee "./lib/Monitee";
+import DRC207 "./lib/DRC207";
 
 shared(installMsg) actor class TokenFactory() = this {
 
@@ -52,8 +52,10 @@ shared(installMsg) actor class TokenFactory() = this {
         };
         module_hash : ?[Nat8];
     };
+    type CallbackLog = (Principal, Time.Time, Types.TxnRecord);
 
-    private stable var SYSTOKEN: ICL.Self = actor("ngvmo-uiaaa-aaaak-aabca-cai");
+    private var blackhole_: Text = "7hdtw-jqaaa-aaaak-aaccq-cai";
+    private stable var SYSTOKEN: ICL.Self = actor("5573k-xaaaa-aaaak-aacnq-cai");
     private stable var SYSTOKEN_EXP: Nat = 100000000; //decimals=8
     private stable var ic: IC.Self = actor("aaaaa-aa");
     private stable var owner: Principal = installMsg.caller;
@@ -61,7 +63,8 @@ shared(installMsg) actor class TokenFactory() = this {
     private var tokens = HashMap.HashMap<Principal, [Principal]>(16, Principal.equal, Principal.hash);
     private var starTokens = HashMap.HashMap<Types.AccountId, [Principal]>(16, Blob.equal, Blob.hash);
     private var tokenOwner = HashMap.HashMap<Principal, Principal>(16, Principal.equal, Principal.hash);
-    private stable var lastCallbacks = Deque.empty<(Principal, Time.Time, Types.TxnRecord)>();
+    private stable var subscribedTokens: [Principal] = [];
+    private stable var lastCallbacks = Deque.empty<CallbackLog>();
     //upgrade
     private stable var tokensEntries : [(Principal, [Principal])] = [];
     private stable var starTokensEntries : [(Types.AccountId, [Principal])] = [];
@@ -78,31 +81,37 @@ shared(installMsg) actor class TokenFactory() = this {
             case(_){ return false; };
         };
     };
+    private func _onlySubscribedToken(_token: Principal) : Bool {
+        switch(Array.find(subscribedTokens, func (p:Principal):Bool { Principal.equal(p, _token) })){
+            case(?(token)){ return true; };
+            case(_){ return false; };
+        };
+    };
     private func _chargeFee(_from: Principal, _fee: Nat): async Bool {
-        let res = await SYSTOKEN.transferFrom(Principal.toText(_from), Principal.toText(owner), 
-        _fee, null, ?Blob.fromArray([1:Nat8]));
+        let res = await SYSTOKEN.drc20_transferFrom(Principal.toText(_from), Principal.toText(owner), 
+        _fee, null, null, ?Blob.fromArray([1:Nat8]));
         switch(res){
             case(#ok(txid)){ return true; };
             case(_){ return false; };
         };
     };
     private func _feeLock(_from: Principal, _fee: Nat): async ?Types.Txid {
-        let res = await SYSTOKEN.lockTransferFrom(Principal.toText(_from), Principal.toText(owner), 
-        _fee, 60, null, null, ?Blob.fromArray([2:Nat8]));
+        let res = await SYSTOKEN.drc20_lockTransferFrom(Principal.toText(_from), Principal.toText(owner), 
+        _fee, 60, null, null, null, ?Blob.fromArray([2:Nat8]));
         switch(res){
             case(#ok(txid)){ return ?txid; };
             case(_){ return null; };
         };
     };
     private func _feeExcute(_txid: Types.Txid): async Bool {
-        let res = await SYSTOKEN.executeTransfer(_txid, #sendAll, null, null);
+        let res = await SYSTOKEN.drc20_executeTransfer(_txid, #sendAll, null, null, null, null);
         switch(res){
             case(#ok(txid)){ return true; };
             case(_){ return false; };
         };
     };
     private func _feeFallback(_txid: Types.Txid): async Bool {
-        let res = await SYSTOKEN.executeTransfer(_txid, #fallback, null, null);
+        let res = await SYSTOKEN.drc20_executeTransfer(_txid, #fallback, null, null, null, null);
         switch(res){
             case(#ok(txid)){ return true; };
             case(_){ return false; };
@@ -114,7 +123,7 @@ shared(installMsg) actor class TokenFactory() = this {
                 switch(Array.find(arr, func (p:Principal):Bool{ if (Principal.equal(p, _token)) true else false; })){
                     case(?(v)){};
                     case(_){
-                        var tokenArr = Array.append(arr, [_token]);
+                        var tokenArr = Tools.arrayAppend(arr, [_token]);
                         tokens.put(_user, tokenArr);
                     };
                 };
@@ -131,7 +140,7 @@ shared(installMsg) actor class TokenFactory() = this {
                 switch(Array.find(arr, func (p:Principal):Bool{ if (Principal.equal(p, _token)) true else false; })){
                     case(?(v)){};
                     case(_){
-                        var tokenArr = Array.append(arr, [_token]);
+                        var tokenArr = Tools.arrayAppend(arr, [_token]);
                         starTokens.put(_user, tokenArr);
                     };
                 };
@@ -146,18 +155,18 @@ shared(installMsg) actor class TokenFactory() = this {
         return Nat.compare(5000 - Nat.min(x.2 * 20 + x.3, 5000), 5000 - Nat.min(y.2 * 20 + y.3, 5000));
     };
     private func _getTokenInList(_token: Principal) : ?TokenItem{
-        switch(Array.find(tokenList, func (item:TokenItem):Bool{ if (Principal.equal(item.0, _token)) true else false; })){
+        switch(Array.find(tokenList, func (item:TokenItem):Bool{ Principal.equal(item.0, _token) })){
             case(?(item)){ return ?item; };
             case(_){ return null; }
         };
     };
     private func _deleteTokenInList(_token: Principal) : (){
-        tokenList := Array.filter(tokenList, func (item:TokenItem):Bool{ if (Principal.equal(item.0, _token)) false else true; });
+        tokenList := Array.filter(tokenList, func (item:TokenItem):Bool{ not(Principal.equal(item.0, _token)) });
     };
     private func _deleteToken(_user: Principal, _token: Principal) : (){
         switch(tokens.get(_user)){
             case(?(arr)){
-                var tokenArr = Array.filter(arr, func (p:Principal):Bool{ if (Principal.equal(p, _token)) false else true; });
+                var tokenArr = Array.filter(arr, func (p:Principal):Bool{ not(Principal.equal(p, _token)) });
                 if (tokenArr.size() == 0){
                     tokens.delete(_user);
                 } else {
@@ -167,6 +176,13 @@ shared(installMsg) actor class TokenFactory() = this {
             case(_){};
         };
         tokenOwner.delete(_token);
+    };
+    private func _putSubscribedToken(_token: Principal) : (){
+        _deleteSubscribedToken(_token);
+        subscribedTokens := Tools.arrayAppend(subscribedTokens, [_token]);
+    };
+    private func _deleteSubscribedToken(_token: Principal) : (){
+        subscribedTokens := Array.filter(subscribedTokens, func (p:Principal):Bool { not(Principal.equal(p, _token)) });
     };
     private func _deleteStarToken(_user: Principal, _token: Principal) : (){
         let user = Tools.principalToAccountBlob(_user, null);
@@ -199,8 +215,32 @@ shared(installMsg) actor class TokenFactory() = this {
             case(_){};
         };
     };
+    // get lastCallbacks
+    private func _getLastCallbacks(_caller: ?Principal, _txn: ?Types.TxnRecord) : [CallbackLog]{
+        var l = List.append(lastCallbacks.0, List.reverse(lastCallbacks.1));
+        switch(_caller){
+            case(?(caller)){
+                switch(_txn){
+                    case(?(txn)){
+                        return Array.filter(List.toArray(l), func (item:CallbackLog):Bool{ Principal.equal(item.0, caller) and Blob.equal(item.2.txid, txn.txid) });
+                    };
+                    case(_){
+                        return Array.filter(List.toArray(l), func (item:CallbackLog):Bool{ Principal.equal(item.0, caller) });
+                    };
+                };
+            };
+            case(_){
+                return List.toArray(l);
+            };
+        };
+    };
+    // in lastCallbacks
+    private func _inLastCallbacks(_caller: Principal, _txn: Types.TxnRecord) : Bool{
+        let logs = _getLastCallbacks(?_caller, ?_txn);
+        return logs.size() > 0;
+    };
     //star it
-    public func _starCallback(_data: [Nat8], _txn: Types.TxnRecord): (){
+    private func _starCallback(_data: [Nat8], _txn: Types.TxnRecord): (){
         let _tokenTextBlob: Blob = Blob.fromArray(_data);
         let _token = Principal.fromText(Option.get(Text.decodeUtf8(_tokenTextBlob),""));
         let txnFrom = _txn.transaction.from;
@@ -237,11 +277,11 @@ shared(installMsg) actor class TokenFactory() = this {
     // Withdraw ICL
     public shared(msg) func ICLWithdraw(_to: Types.Address, _amount: Nat): async Types.TxnResult{
         assert(_onlyOwner(msg.caller));
-        return await SYSTOKEN.transfer(_to, _amount, null, null);
+        return await SYSTOKEN.drc20_transfer(_to, _amount, null, null, null);
     };
     public shared(msg) func ICLBurn(_amount: Nat): async Types.TxnResult{
         assert(_onlyOwner(msg.caller));
-        return await SYSTOKEN.burn(_amount, null, null);
+        return await SYSTOKEN.ictokens_burn(_amount, null, null, null);
     };
     
     /*
@@ -259,7 +299,7 @@ shared(installMsg) actor class TokenFactory() = this {
             let token = await DRC20.DRC20(initArgs);
             let tokenPrincipal = Principal.fromActor(token);
             let status = await ic.canister_status({ canister_id = tokenPrincipal; });
-            tokenList := Array.append(tokenList, [(tokenPrincipal, {
+            tokenList := Tools.arrayAppend(tokenList, [(tokenPrincipal, {
                 name = Option.get(initArgs.name,"");
                 symbol = Option.get(initArgs.symbol,"");
                 decimals = initArgs.decimals;
@@ -269,6 +309,15 @@ shared(installMsg) actor class TokenFactory() = this {
             tokenList := Array.sort(tokenList, _tokenCompare);
             _putTokens(msg.caller, tokenPrincipal);
             tokenOwner.put(tokenPrincipal, msg.caller);
+            let res = await ic.update_settings({
+                canister_id = tokenPrincipal; 
+                settings={ 
+                    compute_allocation = null;
+                    controllers = ?[tokenPrincipal, Principal.fromText(blackhole_), msg.caller]; 
+                    freezing_threshold = null;
+                    memory_allocation = null;
+                };
+            });
             switch (feeTxid){
                 case(?(txid)){ assert(await _feeExcute(txid)); };
                 case(_){};
@@ -299,7 +348,7 @@ shared(installMsg) actor class TokenFactory() = this {
                 return true;
             };
             case(_){ 
-                tokenList := Array.append(tokenList, [(_token, _info, _score, 0, Time.now())]);
+                tokenList := Tools.arrayAppend(tokenList, [(_token, _info, _score, 0, Time.now())]);
                 tokenList := Array.sort(tokenList, _tokenCompare);
                 return true;
              };
@@ -315,9 +364,13 @@ shared(installMsg) actor class TokenFactory() = this {
 
     //token's Callback
     public shared(msg) func tokenCallback(txn: Types.TxnRecord) : async (){
+        assert(_onlySubscribedToken(msg.caller));
+        if (_inLastCallbacks(msg.caller, txn) or Time.now() > txn.timestamp + 8*3600*1000000000){
+            return ();
+        };
         lastCallbacks := Deque.pushFront(lastCallbacks, (msg.caller, Time.now(), txn));
         var size = List.size(lastCallbacks.0) + List.size(lastCallbacks.1);
-        while (size > 20){
+        while (size > 2000){
             size -= 1;
             switch (Deque.popBack(lastCallbacks)){
                 case(?(q, v)){
@@ -331,7 +384,7 @@ shared(installMsg) actor class TokenFactory() = this {
         let txnTo = txn.transaction.to;
         let txnValue = txn.transaction.value;
         let txnData = txn.transaction.data;
-        let data = Tools.getCalldata(txnData);
+        let data: [Nat8] = Blob.toArray(Option.get(txn.transaction.data, Blob.fromArray([])));
         if (data.size() > 4){
             let operation: [Nat8] = Tools.slice<Nat8>(data, 0, ?3);
             if (Array.equal<Nat8>(operation, [0:Nat8,0,0,1], Nat8.equal) and txnValue >= 1*SYSTOKEN_EXP and 
@@ -348,12 +401,20 @@ shared(installMsg) actor class TokenFactory() = this {
         assert(_onlyOwner(msg.caller));
         let token:DRC20.DRC20 = actor(Principal.toText(_token));
         let msgTypes: [Types.MsgType] = [#onTransfer,#onLock,#onExecute,#onApprove];
-        let res = await token.subscribe(tokenCallback, msgTypes, null);
+        let res = await token.drc20_subscribe(tokenCallback, msgTypes, null);
+        if (res) { _putSubscribedToken(_token) };
         return res;
     };
-    public query func getCallbackLogs() : async [(Principal, Time.Time, Types.TxnRecord)]{
-        var l = List.append(lastCallbacks.0, List.reverse(lastCallbacks.1));
-        return List.toArray(l);
+    public shared(msg) func unsubscribe(_token: Principal): async Bool{
+        assert(_onlyOwner(msg.caller));
+        let token:DRC20.DRC20 = actor(Principal.toText(_token));
+        let msgTypes: [Types.MsgType] = [];
+        let res = await token.drc20_subscribe(tokenCallback, msgTypes, null);
+        if (res) { _deleteSubscribedToken(_token) };
+        return res;
+    };
+    public query func getCallbackLogs() : async [CallbackLog]{
+        return Tools.slice(_getLastCallbacks(null, null), 0, ?50);
     };
     //modify controller: _onlyTokenOwner
     public shared(msg) func modifyControllers(_token: Principal, _controllers: [Principal]): async Bool{
@@ -373,7 +434,7 @@ shared(installMsg) actor class TokenFactory() = this {
     public shared(msg) func modifyOwner(_token: Principal, _newOwner: Principal): async Bool{
         assert(_onlyTokenOwner(msg.caller, _token));
         let token:DRC20.DRC20 = actor(Principal.toText(_token));
-        return await token.changeOwner(_newOwner);
+        return await token.ictokens_changeOwner(_newOwner);
     };
     // delete token by user
     public shared(msg) func deleteToken(_token: Principal, _delFromList: Bool): async Bool{
@@ -405,7 +466,7 @@ shared(installMsg) actor class TokenFactory() = this {
         var res: [TokenItem] = [];
         if (from <= to){
             for (i in Iter.range(from, to)){
-                res := Array.append(res, [tokenList[i]]);
+                res := Tools.arrayAppend(res, [tokenList[i]]);
             };
         };
         return res;
@@ -415,7 +476,7 @@ shared(installMsg) actor class TokenFactory() = this {
     async ?Types.Txid{
         let token:DRC20.DRC20 = actor(Principal.toText(_token));
         var txid: ?Types.Txid = null;
-        let res1 = await token.lockTransfer(_to, _value, 60:Nat32, null, null, ?Blob.fromArray([8:Nat8]));
+        let res1 = await token.drc20_lockTransfer(_to, _value, 60:Nat32, null, null, null, ?Blob.fromArray([8:Nat8]));
         switch(res1){
             case(#ok(txid_)){ 
                 txid := ?txid_;
@@ -425,7 +486,7 @@ shared(installMsg) actor class TokenFactory() = this {
         };
         switch(txid){
             case(?(v)){
-                let res2 = await token.executeTransfer(v, _exec, null, null);
+                let res2 = await token.drc20_executeTransfer(v, _exec, null, null, null, null);
             };
             case(_){};
         };
@@ -435,7 +496,7 @@ shared(installMsg) actor class TokenFactory() = this {
     _value: Nat, _exec: Types.ExecuteType): async ?Types.Txid{
         let token:DRC20.DRC20 = actor(Principal.toText(_token));
         var txid: ?Types.Txid = null;
-        let res1 = await token.lockTransferFrom(_from, _to, _value, 60:Nat32, null, null, ?Blob.fromArray([8:Nat8]));
+        let res1 = await token.drc20_lockTransferFrom(_from, _to, _value, 60:Nat32, null, null, null, ?Blob.fromArray([8:Nat8]));
         switch(res1){
             case(#ok(txid_)){ 
                 txid := ?txid_;
@@ -445,7 +506,7 @@ shared(installMsg) actor class TokenFactory() = this {
         };
         switch(txid){
             case(?(v)){
-                let res2 = await token.executeTransfer(v, _exec, null, null);
+                let res2 = await token.drc20_executeTransfer(v, _exec, null, null, null, null);
             };
             case(_){};
         };
@@ -454,16 +515,6 @@ shared(installMsg) actor class TokenFactory() = this {
     // token canister status (Only supports token's controller is Owner)
     public shared(msg) func tokenStatus(_token: Principal): async TokenStatus{
         return await ic.canister_status({ canister_id = _token; });
-    };
-    /// Monitor
-    public func canister_status() : async Monitee.canister_status {
-        let ic : Monitee.IC = actor("aaaaa-aa");
-        await ic.canister_status({ canister_id = Principal.fromActor(this) });
-    };
-    //cycles receive
-    public func wallet_receive(): async (){
-        let amout = Cycles.available();
-        let accepted = Cycles.accept(amout);
     };
     //cycles withdraw: _onlyOwner
     public shared(msg) func cyclesWithdraw(_wallet: Principal, _amount: Nat): async (){
@@ -479,9 +530,34 @@ shared(installMsg) actor class TokenFactory() = this {
         //Cycles.refunded();
     };
     //canister memory
-    public query func getMemory() : async (Nat,Nat,Nat,Nat32){
-        return (Prim.rts_memory_size(), Prim.rts_heap_size(), Prim.rts_total_allocation(),Prim.stableMemorySize());
+    public query func getMemory() : async (Nat,Nat,Nat){
+        return (Prim.rts_memory_size(), Prim.rts_heap_size(), Prim.rts_total_allocation());
     };
+
+    // DRC207 ICMonitor
+    /// DRC207 support
+    public func drc207() : async DRC207.DRC207Support{
+        return {
+            monitorable_by_self = true;
+            monitorable_by_blackhole = { allowed = true; canister_id = ?Principal.fromText(blackhole_); };
+            cycles_receivable = true;
+            timer = { enable = false; interval_seconds = null; }; 
+        };
+    };
+    /// canister_status
+    public func canister_status() : async DRC207.canister_status {
+        let ic : DRC207.IC = actor("aaaaa-aa");
+        await ic.canister_status({ canister_id = Principal.fromActor(this) });
+    };
+    /// receive cycles
+    public func wallet_receive(): async (){
+        let amout = Cycles.available();
+        let accepted = Cycles.accept(amout);
+    };
+    /// timer tick
+    // public func timer_tick(): async (){
+    //     //
+    // };
 
     /*
     * upgrade functions
