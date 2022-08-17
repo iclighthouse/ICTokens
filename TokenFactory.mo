@@ -285,7 +285,7 @@ shared(installMsg) actor class TokenFactory() = this {
     };
     
     /*
-    record { totalSupply=1000000000000; decimals=8; gas=variant{token=10}; name=opt "ICLTokenTest"; symbol=opt "ICLTest"; metadata=null; founder=opt "ygqab-f3o5m-y547q-zyhwr-nwysd-3yayp-idsfg-6jv4w-g7y5n-bqjag-zae";}  
+    record { totalSupply=1000000000000; decimals=8; fee=10; name=opt "ICLTokenTest"; symbol=opt "ICLTest"; metadata=null; founder=opt "ygqab-f3o5m-y547q-zyhwr-nwysd-3yayp-idsfg-6jv4w-g7y5n-bqjag-zae";}  
     */
     public shared(msg) func create(initArgs: Types.InitArgs) : async ?Principal {
         //assert(await _chargeFee(msg.caller, 100*SYSTOKEN_EXP));

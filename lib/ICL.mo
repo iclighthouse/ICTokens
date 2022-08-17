@@ -94,7 +94,7 @@ module {
   public type InitArgs = {
       totalSupply: Nat;
       decimals: Nat8;
-      gas: Gas;
+      fee: Nat;
       name: ?Text;
       symbol:? Text;
       metadata: ?[Metadata];
@@ -106,11 +106,9 @@ module {
     drc20_approvals : shared query Address -> async [Allowance];
     drc20_approve : shared (Spender, Amount, ?Nonce, ?Sa, ?Data) -> async TxnResult;
     drc20_balanceOf : shared query Address -> async Amount;
-    drc20_cyclesBalanceOf : shared query Address -> async Nat;
-    drc20_cyclesReceive : shared ?Address -> async Nat;
     drc20_decimals : shared query () -> async Nat8;
     drc20_executeTransfer : shared (Txid, ExecuteType, ?To, ?Nonce, ?Sa, ?Data) -> async TxnResult;
-    drc20_gas : shared query () -> async Gas;
+    drc20_fee : shared query () -> async Amount;
     drc20_lockTransfer : shared (To, Amount, Timeout, ?Decider, ?Nonce, ?Sa, ?Data) -> async TxnResult;
     drc20_lockTransferFrom : shared (From, To, Amount, Timeout, ?Decider, ?Nonce, ?Sa, ?Data) -> async TxnResult;
     drc20_metadata : shared query () -> async [Metadata];
@@ -124,6 +122,8 @@ module {
     drc20_txnQuery : shared query TxnQueryRequest -> async TxnQueryResponse;
     drc20_txnRecord : shared (Txid) -> async ?TxnRecord;
     drc20_getCoinSeconds : shared query ?Address -> async (CoinSeconds, ?CoinSeconds);
+    drc20_dropAccount : shared (?Sa) -> async Bool;
+    drc20_holdersCount : shared query () -> async (balances: Nat, nonces: Nat, dropedAccounts: Nat);
     ictokens_top100 : shared query () -> async [(Address, Amount)];
     ictokens_heldFirstTime : shared query Address -> async ?Int;
     ictokens_getConfig : shared query () -> async Config;
@@ -134,11 +134,10 @@ module {
     ictokens_burn : shared (Amount, ?Nonce, ?Sa, ?Data) -> async TxnResult;
     ictokens_changeOwner : shared Principal -> async Bool;
     ictokens_config : shared Config -> async Bool;
-    ictokens_cyclesWithdraw : shared (Principal, Nat, ?[Nat8]) -> async ();
     ictokens_isInBlacklist : shared query Address -> async Bool;
     ictokens_mint : shared (To, Amount, ?Nonce, ?Data) -> async TxnResult;
     ictokens_setBlacklist : shared (Address, Bool) -> async Bool;
-    ictokens_setGas : shared Gas -> async Bool;
+    ictokens_setFee : shared Amount -> async Bool;
     ictokens_setMetadata : shared [Metadata] -> async Bool;
     ictokens_setPause : shared Bool -> async Bool;
   }
